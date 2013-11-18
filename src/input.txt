@@ -1,0 +1,20 @@
+void quickSort1(int nums[], int begin, int end)
+{
+	if (begin >= end)
+		return;
+
+	int tag = nums[begin];
+	int save = begin;
+	for (int i = begin + 1 to end)
+	{
+		if (nums[i] <= tag)
+		{
+			save ++;
+			if (i != save)
+				swap1(nums, i, save); 
+		}
+	}
+	swap1(nums, begin, save);
+	quickSort1(nums, begin, save - 1);
+	quickSort1(nums, save + 1, end);
+}

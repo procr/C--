@@ -1,0 +1,532 @@
+/* Copyright (c) 2006, Sun Microsystems, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the Sun Microsystems, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
+options {
+  MULTI=true;
+  KEEP_LINE_COLUMN = false;
+  STATIC = false;
+}
+
+PARSER_BEGIN(Eg2)
+
+/** An Arithmetic Grammar. */
+//package Parser;
+
+public class Eg2 {
+
+  /** Main entry point. */
+  public static void main(String args[]) {
+    System.out.println("Reading from standard input...");
+    Eg2 t = new Eg2(System.in);
+    try {
+      ASTStart n = t.Start();
+      n.dump("");
+      System.out.println("Thank you.");
+    } catch (Exception e) {
+      System.out.println("Oops.");
+      System.out.println(e.getMessage());
+      e.printStackTrace();
+    }
+  }
+}
+
+PARSER_END(Eg2)
+
+
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+| <"//" (~["\n","\r"])* ("\n"|"\r"|"\r\n") >
+| <"/*" (~["*"])* "*" (~["/"] (~["*"])* "*")* "/">
+}
+
+TOKEN : /* KEYWORD  */
+{
+	<IF: "if" >
+	| <ELSE: "else" >
+	| <FOR: "for" >
+	| <TO: "to" >
+	| <WHILE: "while" >
+	| <FOREACH: "foreach" >
+	| <BREAK: "break" >
+	| <CONTINUE: "continue" >
+	| <STRUCT: "struct" >
+	| <RETURN: "return" >
+}
+
+
+TOKEN : /* KEYWORD  */
+{
+  	
+	<VARIABLE_TYPE:  <BOOL > | <INT > | <CHAR > | <REAL >>
+	| <CONST: "const" >
+	| <#BOOL: "bool" >
+	| <#INT: "int" >
+	| <#CHAR: "char" >
+	| <#REAL: "real" >
+	| <VOID: "void" >
+}
+
+
+TOKEN : /* LITERAL  */
+{
+  	<INTEGER_LITERAL:
+		<DECIMAL_NUMERAL >
+		| <HEX_NUMERAL >
+		| <OCTAL_NUMERAL >
+	>
+	| <#REAL_LITERAL:
+		(<DECIMAL_NUMERAL > "." <DECIMAL_NUMERAL >)
+		| ("." <DECIMAL_NUMERAL >)
+		| (<DECIMAL_NUMERAL > ".")
+	>
+	| <LITERAL:		
+		<INTEGER_LITERAL >
+		| <REAL_LITERAL >
+		| <BOOLEAN_LITERAL >
+		| <NULL_LITERAL >
+		| <CHARACTER_LITERAL >	
+	>
+	| <#NON_ZERO_DIGIT: ["1"-"9"] >
+	| <#DIGIT: "0" | <NON_ZERO_DIGIT > >
+	| <#DIGITS: (<DIGIT >)* >
+	| <#DECIMAL_NUMERAL:
+		"0"
+		|<NON_ZERO_DIGIT ><DIGITS >
+	>
+	| <#HEX_DIGIT: ["0"-"9", "a"-"f", "A"-"F"] >	
+	| <#HEX_NUMERAL: ("0" ["x", "X"] (<HEX_DIGIT >)+) >
+	| <#OCTAL_DIGIT: ["0"-"7"] >
+	| <#OCTAL_NUMERAL: ("0" (<OCTAL_DIGIT >)+) >
+	| <#BOOLEAN_LITERAL: "true" | "false" >
+	| <#NULL_LITERAL: "null" >
+	| <#CHARACTER_LITERAL: ("\'" ["a"-"z", "A"-"Z", "1"-"9"] "\'") >}
+
+TOKEN : /* IDENTIFIERS */
+{
+  < IDENTIFIER: <LETTER> (<LETTER>|<DIGIT>)* >
+|
+  < #LETTER: ["_","a"-"z","A"-"Z"] >
+}
+
+TOKEN : /* ASSIGNMENT OPERATORS */
+{
+  	<ASSIGNMENT_EQUAL_OPERATOR: "=" >
+	| <ASSIGNMENT_OPERATOR:
+		"*="
+		| "/="
+		| "+="
+		| "-="
+		| "<<="
+		| ">>="
+		| "&="
+		| "^="
+		| "|="
+	>}
+
+
+
+/** Main production. */
+ASTStart Start() : {}
+{
+  ( StructDeclaration() | LOOKAHEAD(3)FunctionDeclarator() | LOOKAHEAD(3)UniversalDeclarator())+
+  { return jjtThis; }
+}
+
+/** ************Declarations*************** .*/
+
+/** array initializer. */
+void ArrayInitializer() : {}
+{
+	Expression() ("," Expression())*
+}
+
+void UniversalDeclarator() : {}
+{
+	(<CONST >)? <VARIABLE_TYPE > MyID()
+	(
+		<ASSIGNMENT_EQUAL_OPERATOR > Expression()
+	|
+		"[" (<INTEGER_LITERAL >)? "]" (<ASSIGNMENT_EQUAL_OPERATOR > "{" ArrayInitializer() "}")?
+	)?
+	(
+		"," MyID()
+		(
+		<ASSIGNMENT_EQUAL_OPERATOR > Expression()
+		|
+			"[" (<INTEGER_LITERAL >)? "]" (<ASSIGNMENT_EQUAL_OPERATOR > "{" ArrayInitializer() "}")?
+		)?
+	)*
+	";"
+}
+
+/** struct declaration. */
+void StructDeclaration() : {}
+{
+	"struct" MyID() StructBody()
+}
+
+/** struct body. */
+void StructBody() : {}
+{
+	"{" StructDeclarations() "}"
+}
+
+/** struct declarations. */
+void StructDeclarations() : {}
+{
+	  (StructParameter())*
+}
+
+/** struct parameter. */
+void StructParameter() : {}
+{
+	UniversalDeclarator()
+}
+
+/** function declarator. */
+void FunctionDeclarator() : {}
+{
+	(<VOID > | <VARIABLE_TYPE >) MyID() "(" (FunctionParameterList())? ")" FunctionBody()
+}
+
+/** function parameter list. */
+void FunctionParameterList() : {}
+{
+	FunctionParameter() ("," FunctionParameter())*
+}
+
+/** function parameter. */
+void FunctionParameter() : {}
+{
+	(<CONST >)? <VARIABLE_TYPE > MyID()
+	(	  <ASSIGNMENT_EQUAL_OPERATOR > Expression()
+	  | "[" (<INTEGER_LITERAL >)? "]" (<ASSIGNMENT_EQUAL_OPERATOR > "{" ArrayInitializer() "}")?
+	)?
+}
+
+/** function body. */
+void FunctionBody() : {}
+{
+	"{" BlockStatements() "}"
+}
+
+
+
+/** ************block*************** .*/
+
+/** A block. */
+void Block() : {}
+{
+	"{" BlockStatements() "}"
+	| Statement()
+}
+
+/** block statements. */
+void BlockStatements() : {}
+{
+	(BlockStatement())*
+}
+
+/** block statement. */
+void BlockStatement() : {}
+{
+	UniversalDeclarator()
+	| Statement()
+}
+
+/** A statement. */
+void Statement() : {}
+{
+	SimpleStatement()
+	| IfStatement()
+	| WhileStatement()
+	| ForStatement()
+	| ForeachStatement()
+}
+
+
+/** statement without trailing substatement(simple statement). */
+void SimpleStatement() : {}
+{
+	EmptyStatement()
+	| LOOKAHEAD(10) (PostIncDecExpression() ";")
+	| LOOKAHEAD(10) (PreIncDecExpression() ";")
+	| LOOKAHEAD(10) (Expression() ";")	
+	| BreakStatement()
+	| ContinueStatement()
+	| ReturnStatement()
+}
+
+/** empty statement. */
+void EmptyStatement() : {}
+{
+	";"
+}
+
+
+
+/** if statement. */
+void IfStatement() : {}
+{
+	<IF > "(" Expression() ")" Block() (LOOKAHEAD(2) <ELSE > <IF > "(" Expression() ")" Block())* (<ELSE > Block())?
+}
+
+/** A WhileStatement. */
+void WhileStatement() : {}
+{
+	<WHILE > "(" Expression() ")" Block()
+}
+
+/** for statement. */
+void ForStatement() : {}
+{
+	<FOR > "(" (<VARIABLE_TYPE >)? MyID() <ASSIGNMENT_EQUAL_OPERATOR > Expression() <TO > Expression() ")" Block()
+}
+
+/** foreach statement. */
+void ForeachStatement() : {}
+{
+	<FOREACH > "(" <VARIABLE_TYPE > MyID() ":" MyID() ")" Block()
+}
+
+/** break statement. */
+void BreakStatement() : {}
+{
+	<BREAK > ";"
+}
+
+/** continue statement. */
+void ContinueStatement() : {}
+{
+	<CONTINUE > ";"
+}
+
+/** return statement. */
+void ReturnStatement() : {}
+{
+	<RETURN > (Expression())? ";"
+}
+
+/** comment statement. */
+void CommentStatement() : {}
+{
+	";"
+}
+
+
+/** ************Expressions*************** .*/
+
+/** An Expression. */
+void Expression() : {}
+{
+	LOOKAHEAD(5)
+	AssignmentExpression()
+	| ConditionalExpression()
+}
+
+/** assignment expression. */
+void AssignmentExpression() : {}
+{
+	LeftSide() (<ASSIGNMENT_OPERATOR > | <ASSIGNMENT_EQUAL_OPERATOR >) Expression()
+}
+
+/** conditional expression. */
+void ConditionalExpression() : {}
+{
+	ConditionalOrExpression() ("?" Expression() ":" Expression())?
+}
+
+/** conditional or expression. */
+void ConditionalOrExpression() : {}
+{
+	ConditionalAndExpression() ("||" ConditionalAndExpression())*
+}
+
+/** conditional and expression. */
+void ConditionalAndExpression() : {}
+{
+	InclusiveOrExpression() ("&&" InclusiveOrExpression())*
+}
+
+/** inclusive or expression. */
+void InclusiveOrExpression() : {}
+{
+	ExclusiveOrExpression() ("|" ExclusiveOrExpression())*
+}
+
+/** exclusive or expression. */
+void ExclusiveOrExpression() : {}
+{
+	AndExpression() ("^" AndExpression())*
+}
+
+/** and expression. */
+void AndExpression() : {}
+{
+	EqualityExpression() ("&" EqualityExpression())*
+}
+
+/** equality expression. */
+void EqualityExpression() : {}
+{
+	RelationalExpression() (("==" | "!=") RelationalExpression())*
+}
+
+/** relational expression. */
+void RelationalExpression() : {}
+{
+	ShiftExpression() (("<"| ">" | "<=" | ">=") ShiftExpression())*
+}
+
+/** shift expression. */
+void ShiftExpression() : {}
+{
+	AdditiveExpression() (("<<" | ">>") AdditiveExpression())*
+}
+
+/** additive expression. */
+void AdditiveExpression() : {}
+{
+	MultiplicativeExpression() (("+" | "-") MultiplicativeExpression())*
+	#Add(>1)
+}
+
+/** multiplicative expression. */
+void MultiplicativeExpression() : {}
+{
+	UnaryExpression() ( ("*" | "/" | "%") UnaryExpression())*
+	#Mult(>1)
+}
+
+
+/** unary expression. */
+void UnaryExpression() : {}
+{
+	PreIncDecExpression()
+	| LOOKAHEAD(10) PostIncDecExpression()
+	| LOOKAHEAD(10) SimpleUnaryExpression()
+	| "+" UnaryExpression()
+	| "-" UnaryExpression()
+}
+
+/** PreIncDecExpression. */
+void PreIncDecExpression() : {}
+{
+	("--" | "++") LeftSide()
+}
+
+
+/** PostIncDecExpression. */
+void PostIncDecExpression() : {}
+{
+	LeftSide() ("--" | "++")
+}
+
+
+/** unary expression not plus minus(simpleUnaryExpression). */
+void SimpleUnaryExpression() : {}
+{
+	Primary()
+	| "~" UnaryExpression()
+	| "!" UnaryExpression()
+}
+
+
+/** primary. */
+void Primary() :
+{
+	Token t1;
+}
+{
+	t1 = <LITERAL >
+	{
+		jjtThis.setName(t1.image);	}
+	| t1 = <INTEGER_LITERAL >
+	{
+		jjtThis.setName(t1.image);
+	}
+	| LeftSide() (FunctionInvoke())?
+	| "(" Primary2()
+}
+
+/** FunctionInvoke. */
+void FunctionInvoke() : {}
+{
+	"(" (Expression() ("," Expression())*)?	")"
+}
+
+
+/** primary2. */
+void Primary2() : {}
+{
+	Expression() ")"
+	| <VARIABLE_TYPE > ")" SimpleUnaryExpression() //cast expression}
+
+/** left side. */
+void LeftSide() :
+{
+	Token t1;
+	Token t2;
+}
+{
+	t1 = <IDENTIFIER>
+	{
+		jjtThis.setName(t1.image);
+	}
+	(
+		"." t2 = <IDENTIFIER >
+		{
+			jjtThis.setName(t1.image + "." + t2.image);
+		}
+		|
+		"[" Expression() "]"
+	)?
+}
+
+/** An Identifier. */
+void MyID() :
+{
+	Token t;
+}
+{
+	t = <IDENTIFIER>
+	{
+		jjtThis.setName(t.image);
+	}
+}
+
+/**bugs remain:*/
+/**
+	s[i];
+	s[i++];
+*/
